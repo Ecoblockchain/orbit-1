@@ -61,7 +61,7 @@ class Orbit {
   getChannels(callback) {
     const channels = Object.keys(this._channels)
       .map((f) => this._channels[f])
-      .map((f) => { return { name: f.name, password: f.password, db: f.db, state: f.state } });
+      .map((f) => { return { name: f.name, password: f.password, state: f.state } });
 
     if(callback) callback(channels);
 
