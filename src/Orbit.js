@@ -3,7 +3,7 @@
 const fs           = require('fs');
 const path         = require('path');
 const EventEmitter = require('events').EventEmitter;
-const request      = require('request');
+// const request      = require('request');
 const OrbitDB      = require('orbit-db');
 const Post         = require('ipfs-post');
 const Logger       = require('logplease');
@@ -18,7 +18,8 @@ class Orbit {
   constructor(ipfs, events, options) {
     this.ipfs = ipfs;
     this.orbit = null;
-    this.events = events;
+    // this.events = events;
+    this.events = new EventEmitter();
     this.options = options || defaultOptions;
     this.options.cacheFile = path.join(this.options.dataPath, "/orbit-db-cache.json");
     this._channels = {};
@@ -40,7 +41,7 @@ class Orbit {
       })
       .then(() => {
         logger.info(`Connected to '${this.orbit.network.name}' at '${this.orbit.network.publishers[0]}' as '${user.username}`)
-        this.events.emit('network', this.orbit);
+        this.events.emit('network', this.getNetwork());
       })
       .catch((e) => {
         this.orbit = null;
@@ -54,8 +55,16 @@ class Orbit {
       this.orbit.disconnect();
       this.orbit = null;
       this._channels = {};
-      this.events.emit('network', this.orbit);
+      this.events.emit('network', this.getNetwork());
     }
+  }
+
+  getNetwork() {
+    return this.orbit ? {
+      name: this.orbit.network.name,
+      host: this.orbit.network.host,
+      user: this.orbit.user
+    } : null;
   }
 
   getChannels(callback) {
@@ -98,15 +107,16 @@ class Orbit {
   }
 
   getSwarmPeers(callback) {
-    this.ipfs.swarm.peers()
-      .then((peers) => {
-        if(callback)
-          callback(peers.Strings);
-      })
-      .catch((e) => {
-        this._handleError(e);
-        if(callback) callback(null);
-      });
+    callback([]);
+    // this.ipfs.swarm.peers()
+    //   .then((peers) => {
+    //     if(callback)
+    //       callback(peers.Strings);
+    //   })
+    //   .catch((e) => {
+    //     this._handleError(e);
+    //     if(callback) callback(null);
+    //   });
   }
 
   getMessages(channel, lessThanHash, greaterThanHash, amount, callback) {
@@ -115,12 +125,15 @@ class Orbit {
     if(lessThanHash) options.lt = lessThanHash;
     if(greaterThanHash) options.gte = greaterThanHash;
     const messages = this._channels[channel].db ? this._channels[channel].db.iterator(options).collect() : [];
-    if(callback) callback(channel, messages);
+    console.log(JSON.stringify(messages, null, 2))
+    if(callback) callback(messages);
   }
 
   getPost(hash, callback) {
+    console.log("!!!", hash)
     this.ipfs.object.get(hash, { enc: 'base58' })
       .then((res) => {
+        console.log("--", JSON.parse(res.toJSON().Data))
         if(callback)
           callback(null, JSON.parse(res.toJSON().Data));
       })
@@ -264,7 +277,8 @@ class Orbit {
   }
 
   onSocketConnected(socket) {
-    this.events.emit('network', this.orbit);
+    logger.debug("socket connected", socket)
+    this.events.emit('network', this.getNetwork());
   }
 
 }
